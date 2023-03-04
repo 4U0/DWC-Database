@@ -1,6 +1,7 @@
 import discord
 import json
 from discord.ext import commands
+from typing import List, Tuple, Union
 
 intents = discord.Intents.all()
 
@@ -19,49 +20,63 @@ def save_db(db):
 
 @bot.command()
 @commands.has_role(1025610261702377573)
-async def dwc_add(ctx, member: discord.Member, roblox_profile: str):
+async def dwc_add(ctx, user: Union[discord.Member, int], roblox_profile: str):
+    if isinstance(user, discord.Member):
+        user = user.id
     db = load_db()
-    discord_id = member.id
-    db[str(discord_id)] = roblox_profile
+    try:
+        user = int(user)
+    except ValueError:
+        await ctx.send("Invalid user! Please enter a valid Discord ID or mention.")
+        return
+    #discord_id = member.id
+    db[str(user)] = roblox_profile
     save_db(db)
-    member = bot.get_user(discord_id)
-    target_role_member = ctx.guild.get_member(int(discord_id))
+    member = bot.get_user(user)
+    target_role_member = ctx.guild.get_member(int(user))
     if member:
         member_name = member.name + "#" + member.discriminator
         role = discord.utils.get(ctx.guild.roles, name="**DEAL WITH CAUTION**")
         await target_role_member.add_roles(role)
     else:
-        member_name = f"unknown user ({discord_id})"
+        member_name = f"unknown user ({user})"
     embed = discord.Embed(title="Success", color=discord.Color.green())
-    embed.add_field(name="Discord ID", value=f"<@{discord_id}> ({member_name})")
+    embed.add_field(name="Discord ID", value=f"<@{user}> ({member_name})")
     embed.add_field(name="Roblox Profile", value=roblox_profile)
     await ctx.send(embed=embed)
 
 
 @bot.command()
 @commands.has_role(1025610261702377573)
-async def dwc_remove(ctx, member: discord.Member):
+async def dwc_remove(ctx, user: Union[discord.Member, int]):
+    if isinstance(user, discord.Member):
+        user = user.id
     db = load_db()
-    discord_id = member.id
-    if str(discord_id) in db:
-        roblox_profile = db[str(discord_id)]
-        del db[str(discord_id)]
+    try:
+        user = int(user)
+    except ValueError:
+        await ctx.send("Invalid user! Please enter a valid Discord ID or mention.")
+        return
+    #discord_id = member.id
+    if str(user) in db:
+        roblox_profile = db[str(user)]
+        del db[str(user)]
         save_db(db)
-        member = bot.get_user(discord_id)
-        target_role_member = ctx.guild.get_member(int(discord_id))
+        member = bot.get_user(user)
+        target_role_member = ctx.guild.get_member(int(user))
         if member:
             member_name = member.name + "#" + member.discriminator
             role = discord.utils.get(ctx.guild.roles, name="**DEAL WITH CAUTION**")
             await target_role_member.remove_roles(role)
         else:
-            member_name = f"unknown user ({discord_id})"
+            member_name = f"unknown user ({user})"
         embed = discord.Embed(title="Success", color=discord.Color.green())
-        embed.add_field(name="Discord ID", value=f"<@{discord_id}> ({member_name})")
+        embed.add_field(name="Discord ID", value=f"<@{user}> ({member_name})")
         embed.add_field(name="Roblox Profile", value=roblox_profile)
         await ctx.send(embed=embed)
     else:
         embed = discord.Embed(title="Error", color=discord.Color.red())
-        embed.add_field(name="Message", value=f"{discord_id} was not found in the database.")
+        embed.add_field(name="Message", value=f"{user} was not found in the database.")
         await ctx.send(embed=embed)
 
 
@@ -222,13 +237,12 @@ async def dwc_send(ctx, channel: discord.TextChannel, query: str):
 @bot.command()
 async def cmds(ctx):
     embed = discord.Embed(title="Available Commands", color=discord.Color.blue())
-    embed.add_field(name="/dwc_add {discord-mention} {roblox profile link/username}", value="Adds a new entry to the database", inline=False)
-    embed.add_field(name="/dwc_remove {discord-mention}", value="Removes an entry from the database", inline=False)
+    embed.add_field(name="/dwc_add {discord-mention or id} {roblox profile link/username}", value="Adds a new entry to the database", inline=False)
+    embed.add_field(name="/dwc_remove {discord-mention or id}", value="Removes an entry from the database", inline=False)
     embed.add_field(name="/dwcdb {roblox profile link/username or discord id}", value="Searches the database for entries that match the given query", inline=False)
     embed.add_field(name="/dwc_send {channel} {query/string}", value="Searches the database and sends results to a specified channel", inline=False)
     embed.add_field(name="/dwclist", value="Lists all entries in the database", inline=False)
     embed.add_field(name="/cmds", value="Shows all available commands and their description", inline=False)
     await ctx.send(embed=embed)
-
 
 bot.run('BOT TOKEN HERE')
