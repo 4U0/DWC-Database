@@ -81,7 +81,7 @@ async def dwc_remove(ctx, user: Union[discord.Member, int]):
 
 
 @bot.command()
-@commands.has_role(1025610261702377573)
+#@commands.has_role(1025610261702377573)
 async def dwcdb(ctx, *search_words: str):
     search_string = " ".join(search_words)
     db = load_db()
@@ -108,13 +108,44 @@ async def dwcdb(ctx, *search_words: str):
                 results.append(f"**Discord ID**: <@{discord_id}>\n[⚠️] **Reason**: {roblox_profile}")
                 found = True
     if found:
-        embed = discord.Embed(title="Results", color=discord.Color.blue())
-        embed.description = "\n\n".join(results)
-        await ctx.send(embed=embed)
+        pages = [results[i:i+10] for i in range(0, len(results), 10)]
+
+        def create_embed(page_num):
+            embed = discord.Embed(title="Results", color=discord.Color.blue())
+            embed.description = "\n\n".join(pages[page_num])
+            embed.set_footer(text=f"Page {page_num+1}/{len(pages)}")
+            return embed
+
+        current_page = 0
+        message = await ctx.send(embed=create_embed(current_page))
+        if len(pages) > 1:
+            await message.add_reaction("⬅️")
+            await message.add_reaction("➡️")
+
+        def check(reaction, user):
+            return user == ctx.author and reaction.message.id == message.id and str(reaction.emoji) in ["⬅️", "➡️"]
+
+        while True:
+            try:
+                reaction, user = await bot.wait_for("reaction_add", timeout=60.0, check=check)
+            except asyncio.TimeoutError:
+                try:
+                    await message.clear_reactions()
+                except discord.errors.Forbidden:
+                    pass
+                break
+            else:
+                if str(reaction.emoji) == "⬅️":
+                    current_page = (current_page - 1) % len(pages)
+                elif str(reaction.emoji) == "➡️":
+                    current_page = (current_page + 1) % len(pages)
+                await message.edit(embed=create_embed(current_page))
+                await reaction.remove(user)
     else:
         embed = discord.Embed(title="Error", color=discord.Color.red())
         embed.add_field(name="Message", value=f"No results found for '{search_string}'.")
         await ctx.send(embed=embed)
+
 
 @bot.command()
 async def dwclist(ctx):
@@ -256,13 +287,12 @@ async def dwc_edit(ctx, user: Union[discord.Member, int], *, roblox_profile: str
         else:
             member_name = f"unknown user ({user})"
         embed = discord.Embed(title="Success", color=discord.Color.green())
-        embed.add_field(name="Message", value=f"Updated Roblox profile for <@{user}> in the database.")
+        embed.add_field(name="Message", value=f"Updated Reason for <@{user}> in the database.")
         await ctx.send(embed=embed)
     else:
         embed = discord.Embed(title="Error", color=discord.Color.red())
         embed.add_field(name="Message", value=f"No entry found for Discord ID '{user}' in the database.")
         await ctx.send(embed=embed)
-
 
 
 
@@ -273,7 +303,7 @@ async def cmds(ctx):
     embed.add_field(name="/dwc_remove", value="Removes a user's Discord ID and Reason from the database.\nExample: `/dwc-remove 123456789012345678 or @Mention`", inline=False)
     embed.add_field(name="/dwcdb", value="Searches the database for a given Discord ID or Reason and returns any matching results.\nExamples: `/dwcdb 123456789012345678`, `/dwcdb charged back`", inline=False)
     embed.add_field(name="/dwc_edit", value="Edits the current reason for a user.\nExample: `/dwc-edit 123456789012345678 new reason`", inline=False)
-    embed.add_field(name="/dwclist", value="Lists all users and their corresponding Roblox profile links in the database.\nExample: `/dwclist`", inline=False)
+    embed.add_field(name="/dwclist", value="Lists all users and their corresponding Reasons in the database.\nExample: `/dwclist`", inline=False)
     embed.add_field(name="/dwc_send", value="Searches the database and sends results to a specified channel\nExample: `/dwc_send #dwc-db scammed $100`", inline=False)
     embed.add_field(name="/cmds", value="Shows all available commands and their description", inline=False)
     await ctx.send(embed=embed)
